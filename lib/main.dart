@@ -9,14 +9,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await DB.i.db;
-  try {
-    await SupabaseConfig.initialize().timeout(
-      const Duration(seconds: 12),
-    );
-    print('Supabase conectado.');
-  } catch (e) {
-    print('Supabase indisponível. Aplicativo continuará offline: $e');
-  }
   runApp(const DonaVeraApp());
 }
 
@@ -102,6 +94,7 @@ class _AuthGateState extends State<AuthGate> {
 
   Future<void> restoreSession() async {
     try {
+      await SupabaseConfig.initialize();
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null) await validateProfile(user.id);
     } catch (e) {
