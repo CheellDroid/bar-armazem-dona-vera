@@ -8,7 +8,14 @@ import 'supabase_config.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await DB.i.db;
-  await SupabaseConfig.initialize();
+  try {
+    await SupabaseConfig.initialize().timeout(
+      const Duration(seconds: 12),
+    );
+    print('Supabase conectado.');
+  } catch (e) {
+    print('Supabase indisponível. Aplicativo continuará offline: $e');
+  }
   runApp(const DonaVeraApp());
 }
 
