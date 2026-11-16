@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
 import 'package:intl/intl.dart';
+import 'supabase_config.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await DB.i.db;
+  await SupabaseConfig.initialize();
   runApp(const DonaVeraApp());
 }
 
