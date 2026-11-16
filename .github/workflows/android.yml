@@ -20,6 +20,9 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Gerar estrutura Android
+        run: flutter create . --platforms=android
+
       - name: Instalar dependências
         run: flutter pub get
 
