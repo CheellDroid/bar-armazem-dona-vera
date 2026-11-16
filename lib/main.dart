@@ -4,6 +4,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
 import 'package:intl/intl.dart';
 import 'supabase_config.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -67,12 +68,193 @@ class DonaVeraApp extends StatelessWidget {
   @override Widget build(BuildContext context) => MaterialApp(
     title:'Bar e Armazém Dona Vera', debugShowCheckedModeBanner:false,
     theme:ThemeData(useMaterial3:true,colorScheme:ColorScheme.fromSeed(seedColor:const Color(0xFF15965B)),scaffoldBackgroundColor:const Color(0xFFFFFAF0)),
-    home:const MainPage(),
+    home:const AuthGate(),
   );
 }
 
+
+class AuthGate extends StatefulWidget {
+  const AuthGate({super.key});
+  @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
+  final email = TextEditingController();
+  final password = TextEditingController();
+  bool loading = true;
+  bool obscure = true;
+  Map<String, dynamic>? profile;
+  String error = '';
+
+  @override
+  void initState() {
+    super.initState();
+    restoreSession();
+  }
+
+  @override
+  void dispose() {
+    email.dispose();
+    password.dispose();
+    super.dispose();
+  }
+
+  Future<void> restoreSession() async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null) await validateProfile(user.id);
+    } catch (e) {
+      error = 'Entre novamente com internet. $e';
+    }
+    if (mounted) setState(() => loading = false);
+  }
+
+  Future<void> validateProfile(String userId) async {
+    final row = await Supabase.instance.client
+        .from('profiles')
+        .select('store_id,full_name,role,active')
+        .eq('id', userId)
+        .maybeSingle();
+
+    if (row == null || row['active'] != true ||
+        !['admin', 'operator'].contains(row['role'])) {
+      await Supabase.instance.client.auth.signOut();
+      throw Exception('Conta não autorizada ou bloqueada.');
+    }
+
+    if (mounted) setState(() => profile = row);
+  }
+
+  Future<void> login() async {
+    if (email.text.trim().isEmpty || password.text.isEmpty) {
+      setState(() => error = 'Informe e-mail e senha.');
+      return;
+    }
+
+    setState(() {
+      loading = true;
+      error = '';
+    });
+
+    try {
+      final result = await Supabase.instance.client.auth
+          .signInWithPassword(
+        email: email.text.trim(),
+        password: password.text,
+      );
+
+      if (result.user == null) throw Exception('Login não realizado.');
+      await validateProfile(result.user!.id);
+    } catch (e) {
+      error = 'Não foi possível entrar: $e';
+    }
+
+    if (mounted) setState(() => loading = false);
+  }
+
+  Future<void> logout() async {
+    try {
+      await Supabase.instance.client.auth.signOut();
+    } catch (_) {}
+    if (mounted) {
+      setState(() {
+        profile = null;
+        password.clear();
+        error = '';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (loading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (profile != null) return MainPage(onLogout: logout);
+
+    return Scaffold(
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(26),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const CircleAvatar(
+                  radius: 42,
+                  backgroundColor: Color(0xFF15965B),
+                  child: Icon(Icons.storefront, color: Colors.white, size: 42),
+                ),
+                const SizedBox(height: 18),
+                const Text(
+                  'Bar e Armazém Dona Vera',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 23, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text('Entre com sua conta autorizada'),
+                const SizedBox(height: 28),
+                TextField(
+                  controller: email,
+                  keyboardType: TextInputType.emailAddress,
+                  autocorrect: false,
+                  decoration: const InputDecoration(
+                    labelText: 'E-mail',
+                    prefixIcon: Icon(Icons.email_outlined),
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: password,
+                  obscureText: obscure,
+                  decoration: InputDecoration(
+                    labelText: 'Senha',
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    border: const OutlineInputBorder(),
+                    suffixIcon: IconButton(
+                      onPressed: () => setState(() => obscure = !obscure),
+                      icon: Icon(obscure ? Icons.visibility : Icons.visibility_off),
+                    ),
+                  ),
+                  onSubmitted: (_) => login(),
+                ),
+                const SizedBox(height: 18),
+                if (error.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      error,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  ),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: FilledButton.icon(
+                    onPressed: login,
+                    icon: const Icon(Icons.login),
+                    label: const Text('ENTRAR'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class MainPage extends StatefulWidget {
-  const MainPage({super.key});
+  final VoidCallback onLogout;
+  const MainPage({super.key, required this.onLogout});
   @override State<MainPage> createState()=>_MainPageState();
 }
 class _MainPageState extends State<MainPage> {
@@ -91,7 +273,10 @@ class _MainPageState extends State<MainPage> {
         Text('Bar e Armazém',style:TextStyle(fontWeight:FontWeight.w800)),
         Text('Dona Vera',style:TextStyle(fontSize:12)),
       ]),backgroundColor:const Color(0xFF15965B),foregroundColor:Colors.white,
-      actions:[IconButton(onPressed:refresh,icon:const Icon(Icons.refresh))]),
+      actions:[
+        IconButton(onPressed:refresh,icon:const Icon(Icons.refresh)),
+        IconButton(onPressed:widget.onLogout,icon:const Icon(Icons.logout)),
+      ]),
       body:IndexedStack(index:index,children:pages),
       bottomNavigationBar:NavigationBar(selectedIndex:index,onDestinationSelected:(v)=>setState(()=>index=v),destinations:const[
         NavigationDestination(icon:Icon(Icons.home),label:'Início'),
