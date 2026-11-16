@@ -225,7 +225,28 @@ class _FinanceState extends State<Finance>{
     Row(children:[const Expanded(child:Text('Contas a receber',style:TextStyle(fontSize:19,fontWeight:FontWeight.bold))),FilledButton.tonalIcon(onPressed:expense,icon:const Icon(Icons.add),label:const Text('Despesa'))]),
     FutureBuilder(future:DB.i.list('sales'),builder:(c,s){final pending=(s.data??[]).where((r)=>(r['total'] as num)>(r['paid'] as num)).toList();if(pending.isEmpty)return const Padding(padding:EdgeInsets.all(18),child:Text('Nenhuma venda pendente.'));return Column(children:pending.map((r){final bal=(r['total'] as num).toDouble()-(r['paid'] as num).toDouble();final due=r['due_date']==null?'Sem vencimento':'Vence ${df.format(DateTime.parse(r['due_date'] as String))}';return Card(child:ListTile(title:Text('Venda #${r['id']} • ${brl.format(bal)}'),subtitle:Text(due),trailing:IconButton(icon:const Icon(Icons.payments,color:Color(0xFF15965B)),onPressed:()=>receive(r['id'] as int,bal))));}).toList());}),
     const SizedBox(height:14),const Text('Despesas',style:TextStyle(fontSize:19,fontWeight:FontWeight.bold)),
-    FutureBuilder(future:DB.i.list('expenses'),builder:(c,s){final rows=s.data??[];if(rows.isEmpty)return const Padding(padding:EdgeInsets.all(16),child:Text('Nenhuma despesa registrada.'));return Column(children:rows.map((r)=>Card(child:ListTile(leading:const Icon(Icons.receipt,color:Colors.deepOrange),title:Text('${r['description']}'),subtitle:Text(df.format(DateTime.parse(r['created_at'] as String))),trailing:Text(brl.format(r['amount'])))).toList());}),
+    FutureBuilder(
+      future: DB.i.list('expenses'),
+      builder: (c, s) {
+        final rows = s.data ?? [];
+        if (rows.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text('Nenhuma despesa registrada.'),
+          );
+        }
+        return Column(
+          children: rows.map((r) => Card(
+            child: ListTile(
+              leading: const Icon(Icons.receipt, color: Colors.deepOrange),
+              title: Text('${r['description']}'),
+              subtitle: Text(df.format(DateTime.parse(r['created_at'] as String))),
+              trailing: Text(brl.format(r['amount'])),
+            ),
+          )).toList(),
+        );
+      },
+    ),
   ]);
 }
 
